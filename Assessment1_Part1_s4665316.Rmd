@@ -1,0 +1,356 @@
+---
+title: "Predicting Airbnb prices"
+author: "Nishedh_s4665316"
+date: '2022-05-11'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+----------------------------------------------------
+----------------------------------------------------
+### Task 2
+### Loading the librarires.
+```{r}
+library(tidyverse)
+library(knitr)
+library(skimr)
+library(widyr)
+library(tidymodels)
+library(ggplot2)
+library(ggstatsplot)
+library(forcats)
+```
+---------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------
+
+### Task 3
+### Importing the dataset and naming the variable.
+```{r}
+data <- read_csv ("https://raw.githubusercontent.com/maria-pro/bco6008/main/train_airbnb.csv")
+```
+----------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------
+
+### Task 4
+### Review the datatypes in the dataset using `skim()` function
+### The task is to predict prices for rentals. 
+### What are the variables that you think may be useful? 
+### What are the variables which will use useless and you can get rid off?
+```{r}
+skim(data)
+#By using this function we can know the overview of the data set.
+#We will also know the variables type that is either they are on factor, numeric, date and character variables and we will convert the character variables into factor variables later on.
+
+###Data Cleaning
+
+data <- data %>%
+  mutate_if(is.character, factor)
+#By using this function, we have converted all character variable to factor variable except the date variable.
+
+data$last_review<-as.factor(data$last_review)
+#By using this function, we have converted the date variable to factor variable.
+
+#Variables that may be useful for predicting the prices for rentals are neighbourhood group, room type, price, minimum nights, number of reviews and availability 365.
+#Variables that may be considered not useful for predicting the prices for rentals are id, name, host id, host name, neighbourhood,  latitude, longitude, last review, reviews per month and calculated host listings count.
+```
+----------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------
+
+### Task 5
+###Splitting the dataset into 75% for training and 25% for testing using `initial_split().
+```{r}
+set.seed(123)
+data_split <- initial_split(data, f=data$price)
+
+train <- training(data_split)
+
+test <- testing(data_split)
+```
+
+----------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------
+
+### Task 6
+### Review the variables that were "useful"? Use `tidyverse` functions to explore them.
+### Do they vary or constant? 
+### Are they any outliers?
+### Missing values?
+### Use `geom_boxplot()` and `geom_histogram()` are particularly useful 
+### Do they have enough categories (or just one)?
+### Are all categories equal (e.g. have the same number of data points - `count()`)?
+### Should some categories be "merged" into *Other* (e.g. `fct_lump`)?
+### Missing values?
+### Remember to use `fct_reorder()` to make your visualizations more appealing.
+```{r}
+#Are there any outliers?
+quartiles <-quantile(data$price, probs=c(.25, .75), na.rm=FALSE)
+iqr <-IQR(data$price)
+up <- quartiles[2]+1.5*iqr
+low <- quartiles[1]-1.5*+iqr
+
+eliminated<- subset(data, data$price > (quartiles[1]-1.5*iqr) & data$price < (quartiles[2]+1.5*iqr))
+
+boxplot(eliminated$price)
+#The total outliers are total objects (34226) less the eliminated objects (32148).
+#The dark black line above the box and whisker plot (above the 4th quartile) are the outlier objects.
+
+
+
+#Missing values?
+sum(is.na(data))
+#There is 14,039 value that are missing.
+
+
+
+##Do they have enough categories (or just one)?
+data %>% summarise(n_distinct(neighbourhood_group))
+
+data %>% summarise(n_distinct(room_type))
+
+data %>% summarise(n_distinct(name))
+
+data %>% summarise(n_distinct(neighbourhood))
+
+#On categorical variable, we have neighbourhood group, room type, name and neighbourhood which has 5, 3, 33705 and 217 categories respectively.
+
+
+
+##Are all categories equal (e.g. have the same number of data points - `count()`)?
+
+#Neighbourhood Count
+data %>%
+  count(neighbourhood_group) %>%
+  arrange(n) %>%
+  kable()
+
+#All categories for neighbourhood do not have similar number of data points, Staten Island has the minimum frequency which is 249 and Manhattan has the maximum frequency which is 15,146.  
+
+#Room Type
+data %>%
+  count(room_type) %>%
+  arrange(n) %>%
+  kable()
+
+#All categories for room type do not have similar number of data points, Shared room has the minimum frequency which is 799 and Entire home/apt has the maximum frequency which is 17,807. 
+
+
+
+#Should some categories be "merged" into *Other* (e.g. `fct_lump`)?
+#Using fct_lump function to have appropriate data distribution after merging the data
+
+
+#Yes, I believe that the categories like neighbourhood and names  should be merged and maken into less categories for better distribution, prediction and analysis of data.
+```
+-------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------
+
+### Task 7.1
+### Use `distinct()` to see how many unique locations the dataset covers (`name`)
+### Use `count()` to see how many occurances for each unique location (`name`) the dataset has
+### Use `count()` to see how many occurances for each unique `neighbourhood_group` the dataset has
+### Use `count()` to see how many occurances for each unique `neighbourhood` the dataset has
+```{r}
+#Use `distinct()` to see how many unique locations the dataset covers (`name`)
+data %>% summarise(n_distinct(name))
+#The dataset covers 33,705 unique locations
+
+#Use `count()` to see how many occurrences for each unique location (`name`) the dataset has
+data %>%
+  count(name) %>%
+  arrange(n) %>%
+  kable()
+
+#Use `count()` to see how many occurrences for each unique `neighbourhood_group` the dataset has
+data %>%
+  count(neighbourhood_group) %>%
+  arrange(n) %>%
+  kable()
+
+#Use `count()` to see how many occurrences for each unique `neighbourhood` the dataset has
+data %>%
+  count(neighbourhood) %>%
+  arrange(n) %>%
+  kable()
+```
+---------------------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------------
+
+### Task 7.2
+### Use `ggplot()` with `geom_histogram()` to see the flactuation of the `price`
+```{r}
+data %>%  
+  ggplot(aes(x=price, colour=neighbourhood_group)) +
+  geom_histogram(fill="white", binwidth=500)+
+  labs(x = "Price", y= "Count", colour= "Neighbourhood Group", title="Price at New York cities", caption="Figure 2")+
+  theme_light()
+#Here, I have used geom_histogram() that clearly shows the prices of rentals with its frequency at New York different cities (neighbourhood_group).
+#As the price in increasing, the occupancy level is going down. So, basically we can see that there are more bookings for less priced room rentals.
+
+data %>%  
+  ggplot(aes(x=price, colour=room_type)) +
+  geom_histogram(fill="white", binwidth=500)+
+  labs(x = "Price", y= "Count", colour= "Room Type", title="Price with room type", caption="Figure 2")+
+  theme_light()
+#Here, I have used geom_histogram() that clearly shows the prices of rentals with its frequency on different types of room.
+#We can make a conclusion that customers normally prefer Entire home/apt or Private room and that being on less price.
+```
+--------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------
+
+### Task 7.3
+### Group the observations in the dataset on the `neighbourhood_group` with `group_by()` and use `summarise()` to calculate the average price `avr_price` variable as `mean(price)` and median price `median_price` variable as `median(price)` and number of observations for each group `n` as`n=n()`.
+```{r}
+data %>%
+  group_by(neighbourhood_group)%>%
+  summarise(Avg_price = mean(price))%>%
+  ungroup()
+#We have done group_by() function so that when we calculate the mean which will be from the neighbourhood_group only.
+
+
+data %>%
+group_by(neighbourhood_group)%>%
+  summarise(median_price = median(price))%>%
+  ungroup()
+#We have done group_by() function so that when we calculate the median which will be from the neighbourhood_group only.
+```
+-----------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------
+
+### Task 7.4
+### Use `arrange()` with desc(n) to see the results in the descending order.
+```{r}
+data %>%
+  group_by(neighbourhood_group)%>%
+  summarise(Avg_price = mean (price))%>%
+  ungroup() %>%
+  arrange(desc(Avg_price)) %>%
+  kable()
+#we use the arrange() and desc() function so that the categories are arranged in descending order for the mean price of the airbnb.
+
+
+data %>%
+  group_by(neighbourhood_group)%>%
+  summarise(median_price = median(price))%>%
+  ungroup() %>%
+  arrange(desc(median_price)) %>%
+  kable()
+#we use the arrange() and desc() function so that the categories are arranged in descending order for the median price of the airbnb.
+```
+-------------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------------
+
+### Task 7.5
+### Develop a graph that shows distribution of the `price` variable across `neighbourhood_group`. 
+### Use `mutate` and `fct_reorder` to order the graph by `price`.
+```{r}
+data %>% 
+  mutate(neighbourhood_group=fct_reorder(neighbourhood_group, price))%>%
+  ggplot(aes(exp(price), neighbourhood_group))+
+  geom_boxplot()
+```
+------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------
+
+### Task 7.6  
+### Use `geom_boxplot()` and `scale_x_log10`
+### Write 1-2 sentences why we use exp() and why we use `scale_x_log10` in this case.
+### Write a sentence on what insights you can get from the graph
+```{r}
+data %>% 
+  mutate(neighbourhood_group=fct_reorder(neighbourhood_group, price)) %>% 
+  ggplot(aes(exp(price), neighbourhood_group))+
+  geom_boxplot()+
+  scale_x_log10()
+#We use exp(price) which is an exponential function and it helps to calculate the value of the price in exponential value format.
+#We use scale_x_log10 so that the value is in expanded format and the data visualisation is more better.
+#Visualisation without using scale_x_log10 in here was very untidy and was not giving a good visualisation.
+#It gives a shortcuts for the base -10 logarithmic transformation of an axis.
+```
+--------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------
+
+### Task 7.7
+### Use the above step to show distribution of the `price` variable across `neighbourhood`.
+### Since we have MANY unique `neighbourhood`s we need to consider the top 40.
+### Use `mutate` and `fct_lump` 
+    `mutate(neighbourhood=fct_lump(neighbourhood, 40), 
+    neighbourhood=fct_reorder(neighbourhood, price))`
+### Keep the rest of the previous step's code.
+### Write a sentence on what insights you can get from the graph
+
+```{r}
+data  %>% 
+  select(neighbourhood, price) %>% 
+  kable()
+
+data %>%
+mutate(neighbourhood=fct_lump(neighbourhood, 40), 
+        neighbourhood=fct_reorder(neighbourhood, price)) %>%
+ggplot(aes(exp(price), neighbourhood,))+
+  geom_boxplot()
+# We can analyse from the graph that in any type of neighbourhood people still looking for less priced room rentals.
+# There are very few on neighbourhood that doesn't consider price but most of them book airbnb for less price.
+```
+-------------------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------------------
+
+### Task 7.8
+### Use the above step to develop a graph that shows distribution of `price` according to `room_type`
+### Write a sentence on what insights you can get from the graph?
+```{r}
+data %>% 
+  mutate(room_type=fct_reorder(room_type, price)) %>% 
+  ggplot(aes(exp(price), room_type))+
+  geom_boxplot()+
+  scale_x_log10()
+# People normally prefer Entire home/apt first, private room second and then shared room as the last.
+# We can also see from the graph that people choose the Entire home/apt mostly but at less priced rentals.
+```
+------------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------------
+
+### Task 7.9 
+### Use `ggplot()` to develop a `geom_point()` graph that shows `reviews_per_month` as `x` and `price` as `y`
+### Use `scale_x_log10()` and add `geom_smooth(method="lm")`.
+### Write a sentence what value `geom_smooth(method="lm")` adds. What insights can you get from the graph?
+```{r}
+data %>% 
+  filter(reviews_per_month!= "NA")%>%
+ ggplot(aes(reviews_per_month, price)) +
+ geom_point(color="orange")+
+  scale_x_log10()+
+  geom_smooth(method = lm, se = FALSE)
+#The value that geom_smooth(method="lm") add is that it creates a line with the graph but is not the straight line, it basically goes with the pattern and make visualisation look more better.
+#From the graph, we can analyse that the reviews per month is mostly in between 0.10 to 10 and is constant with the price that are ranging below 1000, for the high price of the room rentals there is less reviews.
+```
+------------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------------
+
+### Task 7.10
+### Use the above step to develop a graph that shows the relationship between `calculated_host_listings_count` and `price`
+### Write a sentence on what insights you can get from the graph.
+```{r}
+data %>% 
+ ggplot(aes(calculated_host_listings_count, price)) +
+ geom_point(color="orange")+
+  geom_smooth(method = lm, se = FALSE)
+# We can analyse form the graph that the host listing count are mostly between 0 to 50, and the less number of host listing counts are mostly for high prices rentals.
+```
+---------------------------------------------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------------------------------------
+
+### Task 7.11
+### Use the above  step to develop a graph that shows the relationship between `availability_365` and `price`
+### Write a sentence on what insights you can get from the graph.
+```{r}
+data %>% 
+ ggplot(aes(availability_365, price)) +
+ geom_point(color="orange")+
+  geom_smooth(method = lm, se = FALSE)
+# We can analyse form the graph that the rentals have availability from 0 days to 365 days and the price factor is not the major reason for the availability to increase or decrease.
+```
+
+
