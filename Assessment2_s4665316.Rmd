@@ -1,0 +1,560 @@
+---
+title: "Assessment 2"
+author: "Nishedh_s4665316"
+date: '2022-05-29'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+----------------------------------------------------
+----------------------------------------------------
+### Loading the librarires
+
+```{r}
+library(tidyverse)
+library(knitr)
+library(skimr)
+library(widyr)
+library(tidymodels)
+library(ggplot2)
+library(ggstatsplot)
+library(forcats)
+```
+
+### Importing the dataset and naming the variable.
+```{r}
+data <- read_csv ("https://raw.githubusercontent.com/maria-pro/bco6008/main/train_airbnb.csv")
+```
+------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------
+
+### Using `skim()` function
+```{r}
+skim(data)
+#By using this function we can get the summary and overview of the data set.
+```
+---------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------
+
+```{r}
+set.seed(123)
+```
+-----------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------
+
+# Data being splitted into training and testing data
+```{r}
+data_split<- data%>%initial_split()
+
+data_split
+```
+------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------
+
+# Having training and testing data set
+```{r}
+train<- training(data_split)
+
+test<- testing(data_split)
+```
+--------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------
+# Task 7.1
+# We use distint(name) to look for repeating values
+# Count function is used to find total observations of the each variable assigned
+```{r}
+train%>%distinct(name)
+
+train%>%count(name, sort = TRUE)
+
+train%>%count(neighbourhood_group, sort = TRUE)
+
+train%>%count(neighbourhood, sort = TRUE)
+```
+-------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------
+# Task 7.2
+# geom_histogram() shows the prices of rentals with its frequency
+```{r}
+train%>%
+  ggplot(aes(price))+
+  geom_histogram()
+```
+-------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------
+
+# Task 7.3 and 7.4 Part 1
+# We have done group_by() function so that when we calculate the mean which will be from the neighbourhood_group only.
+# summarise function to summarise the dataset
+```{r}
+ avr_price<- train%>%
+  group_by(neighbourhood_group)%>%
+  summarise(mean(price), n=n())%>%
+  ungroup()
+```
+----------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------
+
+# Task 7.3 and 7.4 Part 2
+# We have done group_by() function so that when we calculate the mean which will be from the neighbourhood only.
+# summarise function to summarise the dataset
+# arranging the median_price in descending order
+```{r}
+median_price<-train%>%
+  group_by(neighbourhood_group, n=n())%>%
+  summarise(median(price))%>%
+  ungroup()
+
+median_price<- median_price%>%arrange(desc(median_price))
+```
+--------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------
+
+# Task 7.5
+# Task 7.6
+# Muate and fct_reorder function used and group_by for neighbourhood_group
+# We use exp(price) which is an exponential function and it helps to calculate the value of the price in exponential value format.
+# We use scale_x_log10 so that the value is in expanded format and the data visualisation is more better.
+# Visualisation without using scale_x_log10 in here was very untidy and was not giving a good visualisation.
+# It gives a shortcuts for the base -10 logarithmic transformation of an axis.
+# Manhattan has the most pricing divisions. staten island had the lowest price distribution. Brooklyn has the second highest price distribution.
+```{r}
+train %>% 
+  mutate(neighbourhood_group=fct_reorder(neighbourhood_group, price))%>%
+  ggplot(aes(exp(price), neighbourhood_group))+
+  geom_boxplot()+
+  scale_x_log10()
+```
+-----------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------
+
+# Task 7.7
+# We can analyse from the graph that in any type of neighbourhood people still looking for less priced room rentals.
+# There are very few on neighbourhood that doesn't consider price but most of them book airbnb for less price.
+```{r}
+train%>%
+mutate(neighbourhood=fct_lump(neighbourhood, 40), 
+        neighbourhood=fct_reorder(neighbourhood, price))%>%
+ggplot(aes(exp(price), neighbourhood,))+
+  geom_boxplot()+
+  scale_x_log10()
+```
+-------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------
+
+# Task 7.8
+# People normally prefer Entire home/apt first, private room second and then shared room as the last.
+# We can also see from the graph that people choose the Entire home/apt mostly but at less priced rentals.
+```{r}
+train%>%
+  ggplot(aes(price,room_type))+
+  geom_boxplot()+
+  scale_x_log10()
+```
+--------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------
+
+# Task 7.9
+# The value that geom_smooth(method="lm") add is that it creates a line with the graph but is not the straight line, it basically goes with the pattern and make visualisation look more better.
+# From the graph, we can analyse that the reviews per month is mostly in between 0.10 to 10 and is constant with the price that are ranging below 1000, for the high price of the room rentals there is less reviews.
+```{r}
+train%>%
+  ggplot(aes(reviews_per_month,price))+
+  geom_point()+
+  scale_x_log10()+
+  geom_smooth(method="lm")
+```
+----------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------
+
+# Task 7.10
+# We can analyse form the graph that the host listing count are mostly between 0 to 50, and the less number of host listing counts are mostly for high prices rentals.
+```{r}
+train%>%
+  ggplot(aes(calculated_host_listings_count,price))+
+  geom_point()+
+  scale_x_log10()+
+  geom_smooth(method="lm")
+```
+----------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------
+
+# Task 7.11
+# We can analyse form the graph that the rentals have availability from 0 days to 365 days and the price factor is not the major reason for the availability to increase or decrease.
+```{r}
+train%>%
+  ggplot(aes(availability_365,price))+
+  geom_point()+
+  scale_x_log10()+
+  geom_smooth(method="lm")
+```
+-------------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------------
+
+
+####ASSESSMENT 1 PART 2
+### Installing and lOading the Libraries
+
+```{r}
+#install.packages("ggmap")
+library(ggmap)
+#install.packages("ggthemes")
+library(ggthemes)
+```
+-------------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------------
+
+
+# Task 1 Creating a map
+
+# This data map shows the latitude and longitude of the rental's stay address.
+# For predicting the price of the rentals, the colour description will help to find based on the colour levels and type. Blue colour represents the low price and Red Colour represents the high price and if the colour is moving upward from Blue to Red that means the price is also moving upwards.
+# We can see the nyc city map as presented in a Google map and will also help for geolocation and routing the places according to their latitude and longitude along with the price levels.
+```{r}
+bbox <- c(left = -74.24285, bottom = 40.50641, right = -73.71690, top = 40.91306)
+
+nyc_map <- get_stamenmap(bbox, zoom = 11)
+aggregated_lat_lon <- train %>%
+  group_by(latitude = round(latitude, 2),
+           longitude = round(longitude, 2)) %>%
+  summarize(price = mean(price),
+            n = n()) %>%
+  filter(n >= 5)
+
+```
+-----------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------
+
+# Task 2
+# Set the recipe and get the ingredients
+```{r}
+recipe_xg <- recipe (price~ minimum_nights + room_type + number_of_reviews + latitude + longitude + neighbourhood_group + reviews_per_month + calculated_host_listings_count + availability_365 + last_review, data= train)
+
+summary(recipe_xg)
+
+#Here, we are now predicting the price in regards to data (airbnb), price is our output variable and the rest are our input variables.
+```
+------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------
+
+# Task 2.1 Write the recipe steps
+```{r}
+recipe_xg_steps<-recipe_xg%>%
+  step_mutate(last_review = coalesce(as.integer(Sys.Date() - last_review), 0))%>%
+  step_dummy(all_nominal_predictors())
+
+#For step_mutate(is_manhattan = neighbourhood_group == Manhattan), we can say that we are selecting and mutating the Manhattan place only from the neighbourhood group for predicting the outcome.
+
+#For step_rm(neighbourhood_group), we are removing the neighbourhood group as we already took Manhatten for prediction of the data.
+
+#For step_mutate(last_review = coalesce(as.integer(Sys.Date() - last_review), 0)), we do a changes to fix the integer value to get the proper dataset.
+
+#For step_dummy, we are creating a specification of a recipe where we are converting all the nominal variables into numeric binary models.
+
+#For example, if there is 3 different room_type then this function will create two additional columns of 0 or 1 for two of those 3 variables and therefore remove the original column.
+
+
+recipe_prep1 <- prep(recipe_xg_steps, training=train)
+summary(recipe_prep1)
+
+
+juice(recipe_prep1)%>%
+  ggplot(aes(last_review))+
+  geom_histogram()
+# Juice function will return the results of a recipe where all steps have been applied to the data.
+# In the graph, we can see the number of counts of reviews.
+```
+-------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------
+
+# Task 3
+# Set the recipe and get the ingredients
+```{r}
+recipe_linear <- recipe(price~ room_type + latitude + longitude + neighbourhood_group + neighbourhood + host_id, data= train)
+
+summary(recipe_linear)
+#Here, we are now predicting the price in regards to data (airbnb), price is our output variable and the rest are our input variables.
+```
+---------------------------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------------------
+
+# Task 3.1
+# Write the recipe steps
+```{r}
+recipe_linear_steps<- recipe_linear%>%
+  step_mutate(host_id=as_factor(host_id))%>%
+  step_other(host_id, neighbourhood)%>%
+  step_dummy(all_nominal_predictors())%>%
+  step_normalize(all_predictors())
+
+recipe_prep2 <- prep(recipe_linear_steps, training= train)
+summary(recipe_prep2)
+
+#step_mutate(host_id=as_factor(host_id)) will not create a new variable but instead it will convert the numerical variable to factor variable.
+#It will be helpful for R to treat them as a grouping variable.
+
+# step_other(host_id, neighbourhood) creates a specification of a recipe which will try to extract the infrequently occurring values into an other category.
+```
+--------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------
+
+### Assessment 2
+
+# Loading the libraries
+```{r}
+
+#install.packages("xgboost")
+library(xgboost)
+#install.packages("yardstick")
+library(yardstick)
+#install.packages("doParallel")
+library(doParallel)
+doParallel::registerDoParallel(cores = 4)
+#install.packages("glmnet")
+library(glmnet)
+
+```
+-----------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------
+
+# Task 1
+```{r}
+set.seed(2021)
+
+mset<-metric_set(rmse)
+
+# rmse is effective for linear regression model rather than classification model.
+# rmse tells how far apart the between the observed and predicted values in a regression.
+# rmse calculates the root mean square error and is used for calculating the actual values and predicted values.
+# metric_set() combines multiple metric functions together into a new function that calculates all of them at once.
+```
+----------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------
+
+# Task 2
+```{r}
+grid_control<-control_grid(save_pred = TRUE,
+                           save_workflow = TRUE,
+                           extract = extract_model)
+
+# save_workflow is used for the workflow to be appended to the output as an attribute.
+# save_pred is a logical for whether the out-of-sample predictions should be saved for each model evaluated.
+# extract is an optional function that can be used to retain arbitrary objects from the model fit object, recipe, or other elements of the workflow.
+# Well, control grid controls the aspects of the grid search process.
+```
+---------------------------------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------------------------
+
+# Task 3
+```{r}
+train_fold5<-vfold_cv(train,5)
+
+
+# Well, vfold_cv randomly splits the data into groups of roughly equal sized called folds.
+# We use Vfold to split the data to help make a better prediction size after it has made a 5 fold in this dataset. 
+```
+--------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------
+
+# Task 4
+```{r}
+model_set<-boost_tree(mode = "regression",
+                      engine = "xgboost",
+                      mtry = tune(),
+                      trees = tune(),
+                      learn_rate = tune())
+
+
+# boost_tree() is used for the number of predictors that will be randomly sampled at each split when creating the tree models.
+# xgboost provides parallel tree boosting and is the leading machine learning library for regression.
+# mtry is number of variables randomly sampled at each split which helps for number of decision tress to grow.
+# trees is used represent the number of trees contained in the ensemble.
+
+# Here we are setting up the model to create a workflow in next steps.
+```
+----------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------
+
+# Task 6
+# Workflow being setting up
+```{r}
+xg_wf<-workflow(recipe_prep1, model_set)
+
+# The workflow named xg_wf is being created by having the first recipe which is recipe_prep1 and the model we set before which is model_set.
+
+```
+----------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------
+
+# Task 7
+```{r}
+xg_tune<- xg_wf %>% tune_grid(train_fold5,
+            metrics = mset,
+            control = grid_control,
+            grid = crossing(mtry = c(7),
+                            trees = seq(250, 1500, 25),
+                            learn_rate = c(.008, .01)))
+
+# Well, tune_grid computes a set of performance metrics (here RMSE) for a pre-defined set of tuning parameters that correspond to a model. 
+# The control function is used for modifying the tuning process. 
+# The grid function	is a data frame of tuning all the combinations.
+```
+------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------
+
+# Task 8
+```{r}
+autoplot(xg_tune)
+
+#We use this function to view the result of xg_tune in a visualization form.
+```
+---------------------------------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------------------------
+
+# Task 9
+```{r}
+xg_tune %>%
+collect_metrics() %>%
+arrange(mean)
+```
+------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------
+
+# Task 10
+```{r}
+
+xg_fit<- xg_wf%>%
+   finalize_workflow(select_best(xg_tune)) %>%
+  fit(train)
+# We use this code to use the best configuration in order to fit the model to training data.
+```
+-------------------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------------------
+
+# Task 11
+```{r}
+xg_fit %>%
+augment(test) %>%
+rmse(price, .pred)
+
+# Here, the rmse estimated value is 253.15
+# The rmse is very high and does not seem to be a good model predictor.
+# This is used for checking out the accuracy on testing data set to see if we over fitted.
+
+importances <- xgboost::xgb.importance(model = xg_fit$fit$fit$fit)
+# We use this code to check out important predictors or features.
+
+holdout<-read_csv("https://raw.githubusercontent.com/maria-pro/bco6008/main/train_airbnb.csv")
+
+# We are using a new read_csv file called holdout.
+
+
+xg_fit %>%
+    augment(holdout) %>%
+    mutate(.pred = exp(.pred) - 1) %>%
+    select(id, price = .pred) %>%
+  write_csv("xg_attempt.csv")
+```
+----------------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------------
+
+# Task 12
+```{r}
+importances %>%
+mutate(Feature = fct_reorder(Feature, Gain)) %>%
+ggplot(aes(Gain, Feature)) +
+geom_col()
+
+# This code hels us to make a graph where on y-axis we can see feature of the air_bnb and x-axix we can see the gain values.
+# This graph will help for checking out the important feature or predictive values for further analysis.
+```
+---------------------------------------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------------------------------
+
+# Task 13
+```{r}
+lin_mod<- linear_reg(penalty = tune())%>%
+  set_engine("glmnet")
+
+#Here, model is being set.
+```
+---------------------------------------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------------------------------
+
+# Task 14
+# Create a new workflow for this model using `lin_rec` and `lin_mod`. Save it as `lin_wf`
+```{r}
+lin_rec<-train%>%
+  recipe(price ~ room_type + latitude +longitude +neighbourhood_group + neighbourhood +host_id)%>%
+  step_other(host_id, neighbourhood, threshold = tune())%>%
+  step_dummy(all_nominal_predictors())%>%
+  step_normalize(all_predictors())
+
+lin_wf<-workflow()%>%
+  add_recipe(lin_rec)%>%
+  add_model(lin_mod)
+```
+-------------------------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------------------------
+
+# Task 15
+```{r}
+lin_tune<- lin_wf %>%
+  tune_grid(train_fold5,
+            metrics = mset,
+            control = grid_control,
+            grid = crossing(penalty = 10 ^ seq(-7, -1, .1),
+                            threshold = .001
+                          ))
+# Here, we are using cross-validation to evaluate this model with all the different parameters configured on the steps.
+
+autoplot(lin_tune)
+
+# The result is calculated through root mean square error since this is regression model and if it was classification model we would have accuracy on y-axis.
+# We use this function to view the result of lin_tune in a visualization form.
+
+lin_tune %>%
+collect_metrics() %>%
+arrange(mean)
+
+# Here, we are arranging the mean values in descending order after collecting the metrics.
+# We look at the penalty the pre-processor model and the mean for the same.
+
+```
+--------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------
+
+# Task 16
+```{r}
+lin_fit <- lin_wf %>%
+  finalize_workflow(select_best(lin_tune)) %>%
+  fit(train)
+
+lin_fit %>%
+  augment(test) %>%
+  rmse(.pred, price)
+
+# We are ready for predicting the dataset for price variable where test of dataset is now being augmented.
+# Here we are making a correct fit, doing a test, and making prediction on the output variable called "price".
+# rmse is used for making an estimate of the price variable.
+# rmse value is being used for making the prediction.
+
+# The rmse that has been estimated is 254.83 for lin_fit model.
+# The rmse is very high and does not seem to be a good model predictor.
+
+```
+---------------------------------------------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------------------------------------
+
+# Task 17
+# Comparision of models, conclusion and insights of dataset
+```{r}
+# Both the models xg_fit and lin_fit does not have a good predictor values which is 253.15 and 254.83 respectively.
+# Both the models are not fit for making predictions as the rmse value is very high.
+# The mean prices of airbnb where being around 150-200 in between and for the same we are having rmse value around 254 for both the models, so the model is not a good for predicting the price variable of airbnb.
+# The input variables need to be changed and apply for another prediction fit model to get a less rmse value.
+```
+
